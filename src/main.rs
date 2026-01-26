@@ -1,11 +1,10 @@
 mod shapes;
+mod web_server;
 
 use anyhow::Result;
 
-use crate::shapes::read_shapes;
-
 fn main() -> Result<()> {
-  read_shapes()?;
+  web_server::init(8080);
 
   return Ok(());
 }
