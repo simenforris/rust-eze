@@ -64,7 +64,7 @@ fn extract_request_line(line: String) -> Result<(HttpMethod, String, String), Er
   let mut it = line.split_whitespace();
   match (it.next(), it.next(), it.next()) {
     (Some(method), Some(uri), Some(version)) => Ok((
-      HttpMethod::from_str(method).unwrap(),
+      HttpMethod::from_str(method)?,
       uri.to_string(),
       version.to_string(),
     )),
