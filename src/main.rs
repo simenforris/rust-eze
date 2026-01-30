@@ -4,7 +4,7 @@ mod web_server;
 use anyhow::Result;
 
 fn main() -> Result<()> {
-  web_server::init(8080);
+  web_server::init(8080, None)?;
 
   return Ok(());
 }
