@@ -13,7 +13,7 @@ impl Default for HttpResponse {
       status: 200,
       reason: "OK".into(),
       headers: Default::default(),
-      body: Some("OK".into()),
+      body: Some("".into()),
     }
   }
 }

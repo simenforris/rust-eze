@@ -129,11 +129,11 @@ impl HttpRequest {
   }
 
   pub fn path(&self) -> &str {
-    return self
-      .uri
-      .split_once("?")
-      .map(|(p, _)| p)
-      .unwrap_or("/".into());
+    if let Some((path, _)) = self.uri.split_once('?') {
+      return path;
+    }
+
+    return self.uri.as_str();
   }
 
   pub fn query_str(&self) -> Option<&str> {

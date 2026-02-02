@@ -6,7 +6,7 @@ use std::{
   thread::{Builder, JoinHandle},
 };
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
@@ -20,21 +20,24 @@ impl Worker {
     let builder = Builder::new();
 
     let thread = builder.spawn(move || loop {
-      let job = receiver
+      let message = receiver
         .lock()
-        .map_err(|err| format!("mutex lock failed {err}"))
+        .map_err(|err| anyhow!("mutex lock failed {err}"))
         .and_then(|receiver| {
           receiver
             .recv()
-            .map_err(|err| format!("failed to recv message {err}"))
+            .map_err(|err| anyhow!("failed to recv message {err}"))
         });
 
-      match job {
+      match message {
         Ok(job) => {
           println!("Worker {id} got a job; executing");
           job();
         }
-        Err(err) => println!("Worker {id} {err}"),
+        Err(err) => {
+          println!("Worker {id} exited; shutting down. {err}");
+          break;
+        }
       }
     })?;
 
@@ -44,7 +47,7 @@ impl Worker {
 
 pub struct ThreadPool {
   workers: Vec<Worker>,
-  sender: Sender<Job>,
+  sender: Option<Sender<Job>>,
 }
 
 impl ThreadPool {
@@ -70,17 +73,35 @@ impl ThreadPool {
       }
     }
 
-    return ThreadPool { workers, sender };
+    return ThreadPool {
+      workers,
+      sender: Some(sender),
+    };
   }
 
-  pub fn execute<F>(&self, f: F)
+  pub fn execute<F>(&self, f: F) -> Result<()>
   where
     F: FnOnce() + Send + 'static,
   {
     let job = Box::new(f);
 
-    if let Err(err) = self.sender.send(job) {
-      println!("failed to handle connection: {}", err)
+    return match self.sender.as_ref() {
+      Some(sender) => sender
+        .send(job)
+        .map_err(|err| anyhow!("unable to pass job to worker {}", err)),
+      None => Err(anyhow!("unable to pass job to worker, no sender")),
+    };
+  }
+}
+
+impl Drop for ThreadPool {
+  fn drop(&mut self) {
+    drop(self.sender.take());
+
+    for worker in &mut self.workers.drain(..) {
+      println!("shutting down worker {}", worker.id);
+
+      worker.thread.join().unwrap();
     }
   }
 }
